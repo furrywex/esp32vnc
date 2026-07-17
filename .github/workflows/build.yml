@@ -1,4 +1,4 @@
-name: PlatformIO Mega Build V3
+name: PlatformIO Mega Build V4
 on: [push, pull_request]
 
 jobs:
@@ -22,7 +22,7 @@ jobs:
         run: pio run
 
       - name: Upload Firmware Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: esp32vnc-firmware
           path: |
