@@ -54,7 +54,6 @@ lv_obj_t * offset_y_lbl;
 // ==========================================
 //   МЕГА-МАССИВЫ ДЛЯ РУССКОЙ КЛАВИАТУРЫ
 // ==========================================
-// Для русской раскладки нам нужны свои карты кнопок. 
 static const char * kb_map_ru_lc[] = {
     "й", "ц", "у", "к", "е", "н", "г", "ш", "щ", "з", "х", "ъ", LV_SYMBOL_BACKSPACE, "\n",
     "ф", "ы", "в", "а", "п", "р", "о", "л", "д", "ж", "э", LV_SYMBOL_NEW_LINE, "\n",
@@ -86,8 +85,6 @@ static const lv_btnmatrix_ctrl_t kb_ctrl_en_lc[] = {
 // ==========================================
 //    ДРАЙВЕР VNC И КОНВЕРТЕР KEYSYM
 // ==========================================
-
-// Конвертация символа (UTF-8 или ASCII) в X11 Keysym для отправки на ПК
 uint32_t char_to_keysym(const char * txt) {
     if (strlen(txt) == 1) {
         char c = txt[0];
@@ -99,13 +96,11 @@ uint32_t char_to_keysym(const char * txt) {
         if (c == ',') return 0x002c;
     }
     
-    // Специальные кнопки LVGL
-    if (strcmp(txt, LV_SYMBOL_BACKSPACE) == 0) return 0xFF08; // Backspace
-    if (strcmp(txt, LV_SYMBOL_NEW_LINE) == 0) return 0xFF0D;  // Enter
-    if (strcmp(txt, LV_SYMBOL_LEFT) == 0) return 0xFF51;      // Arrow Left
-    if (strcmp(txt, LV_SYMBOL_RIGHT) == 0) return 0xFF53;     // Arrow Right
+    if (strcmp(txt, LV_SYMBOL_BACKSPACE) == 0) return 0xFF08;
+    if (strcmp(txt, LV_SYMBOL_NEW_LINE) == 0) return 0xFF0D;
+    if (strcmp(txt, LV_SYMBOL_LEFT) == 0) return 0xFF51;
+    if (strcmp(txt, LV_SYMBOL_RIGHT) == 0) return 0xFF53;
     
-    // Русские буквы (X11 Cyrillic Keysyms)
     if (strcmp(txt, "й") == 0) return 0x06CA;
     if (strcmp(txt, "ц") == 0) return 0x06C3;
     if (strcmp(txt, "у") == 0) return 0x06D5;
@@ -210,21 +205,17 @@ void my_touchpad_read(lv_indev_drv_t * indev_drv, lv_indev_data_t * data) {
         data->point.x = x;
         data->point.y = y;
 
-        // ПЛАВАЮЩИЕ КНОПКИ VNC (Только если VNC активен и мы не в меню/клаве)
         if(vnc_active && !vnc_paused && !vnc_kb_active) {
-            // Кнопка "=" (Меню) - Правый нижний угол (40x40)
             if(x > tft.width() - 40 && y > tft.height() - 40) {
                 vnc_paused = true;
                 lv_scr_load(pause_menu_screen); 
                 return;
             }
-            // Кнопка "K" (Клава) - Левее от меню (40x40)
             if(x > tft.width() - 85 && x < tft.width() - 45 && y > tft.height() - 40) {
                 vnc_kb_active = true;
-                lv_scr_load(kb_overlay_screen); // Врубаем клаву
+                lv_scr_load(kb_overlay_screen); 
                 return;
             }
-            // Если не попали по кнопкам - отправляем клик в комп
             vnc.mouseEvent(x + vnc_offset_x, y + vnc_offset_y, 1); 
         }
 
@@ -245,7 +236,6 @@ static void vnc_kb_event_cb(lv_event_t * e) {
     const char * txt = lv_btnmatrix_get_btn_text(obj, btn_id);
     if(txt == NULL) return;
 
-    // Переключение языков
     if(strcmp(txt, "RU") == 0) {
         lv_keyboard_set_map(vnc_custom_kb, LV_KEYBOARD_MODE_USER_1, kb_map_ru_lc, kb_ctrl_ru_lc);
         return;
@@ -254,25 +244,23 @@ static void vnc_kb_event_cb(lv_event_t * e) {
         lv_keyboard_set_map(vnc_custom_kb, LV_KEYBOARD_MODE_USER_1, kb_map_en_lc, kb_ctrl_en_lc);
         return;
     }
-    // Закрытие клавы
     if(strcmp(txt, LV_SYMBOL_CLOSE) == 0) {
         vnc_kb_active = false;
         tft.fillScreen(TFT_BLACK);
-        lv_scr_load(lv_obj_create(NULL)); // Прячем LVGL, возвращаем VNC
+        lv_scr_load(lv_obj_create(NULL));
         return;
     }
 
-    // Если это кнопка символа - отправляем её по VNC!
     uint32_t keysym = char_to_keysym(txt);
     if(keysym != 0) {
-        vnc.keyEvent(keysym, 0b1); // Нажали
+        vnc.keyEvent(keysym, 0b1);
         delay(10);
-        vnc.keyEvent(keysym, 0b0); // Отпустили
+        vnc.keyEvent(keysym, 0b0);
     }
 }
 
 // ==========================================
-//     ЛОГИКА ИНТЕРФЕЙСА (ОБЩАЯ ЧАСТЬ)
+//     ЛОГИКА ИНТЕРФЕЙСА
 // ==========================================
 static void ta_event_cb(lv_event_t * e) {
     lv_event_code_t code = lv_event_get_code(e);
@@ -355,7 +343,6 @@ static void btn_orient_event_cb(lv_event_t * e) {
     lv_disp_drv_update(lv_disp_get_default(), disp_drv);
 }
 
-// Меню Паузы
 static void btn_vnc_resume_cb(lv_event_t * e) {
     vnc_paused = false;
     tft.fillScreen(TFT_BLACK);
@@ -397,35 +384,216 @@ void build_main_ui() {
     lv_obj_t * t3 = lv_tabview_add_tab(tv, "Set");
     lv_obj_t * t4 = lv_tabview_add_tab(tv, "Info");
 
-    ip_ta = lv_textarea_create(t1); lv_textarea_set_placeholder_text(ip_ta, "IP: 192.168..."); lv_obj_set_width(ip_ta, 160); lv_obj_align(ip_ta, LV_ALIGN_TOP_LEFT, 0, 0); lv_obj_add_event_cb(ip_ta, ta_event_cb, LV_EVENT_ALL, NULL);
-    port_ta = lv_textarea_create(t1); lv_textarea_set_text(port_ta, "5900"); lv_obj_set_width(port_ta, 80); lv_obj_align(port_ta, LV_ALIGN_TOP_RIGHT, 0, 0); lv_obj_add_event_cb(port_ta, ta_event_cb, LV_EVENT_ALL, NULL);
+    ip_ta = lv_textarea_create(t1); 
+    lv_textarea_set_placeholder_text(ip_ta, "IP: 192.168..."); 
+    lv_obj_set_width(ip_ta, 160); 
+    lv_obj_align(ip_ta, LV_ALIGN_TOP_LEFT, 0, 0); 
+    lv_obj_add_event_cb(ip_ta, ta_event_cb, LV_EVENT_ALL, NULL);
+    
+    port_ta = lv_textarea_create(t1); 
+    lv_textarea_set_text(port_ta, "5900"); 
+    lv_obj_set_width(port_ta, 80); 
+    lv_obj_align(port_ta, LV_ALIGN_TOP_RIGHT, 0, 0); 
+    lv_obj_add_event_cb(port_ta, ta_event_cb, LV_EVENT_ALL, NULL);
 
-    lv_obj_t * btn_conn = lv_btn_create(t1); lv_obj_set_size(btn_conn, 140, 50); lv_obj_align(btn_conn, LV_ALIGN_CENTER, 0, 0); lv_obj_add_event_cb(btn_conn, btn_vnc_conn_cb, LV_EVENT_CLICKED, NULL);
-    lv_obj_t * lbl_conn = lv_label_create(btn_conn); lv_label_set_text(lbl_conn, "START VNC");
+    lv_obj_t * btn_conn = lv_btn_create(t1); 
+    lv_obj_set_size(btn_conn, 140, 50); 
+    lv_obj_align(btn_conn, LV_ALIGN_CENTER, 0, 0); 
+    lv_obj_add_event_cb(btn_conn, btn_vnc_conn_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t * lbl_conn = lv_label_create(btn_conn); 
+    lv_label_set_text(lbl_conn, "START VNC");
 
-    wifi_dd = lv_dropdown_create(t2); lv_dropdown_set_options(wifi_dd, "Press Scan..."); lv_obj_set_width(wifi_dd, 180); lv_obj_align(wifi_dd, LV_ALIGN_TOP_LEFT, 0, 0);
-    lv_obj_t * btn_scan = lv_btn_create(t2); lv_obj_set_width(btn_scan, 70); lv_obj_align(btn_scan, LV_ALIGN_TOP_RIGHT, 0, 0); lv_obj_add_event_cb(btn_scan, btn_wifi_scan_cb, LV_EVENT_CLICKED, NULL); lv_obj_t * lbl_scan = lv_label_create(btn_scan); lv_label_set_text(lbl_scan, "Scan");
-    pwd_ta = lv_textarea_create(t2); lv_textarea_set_placeholder_text(pwd_ta, "Password"); lv_obj_set_width(pwd_ta, 180); lv_obj_align(pwd_ta, LV_ALIGN_TOP_LEFT, 0, 45); lv_obj_add_event_cb(pwd_ta, ta_event_cb, LV_EVENT_ALL, NULL);
-    lv_obj_t * btn_wconn = lv_btn_create(t2); lv_obj_set_width(btn_wconn, 70); lv_obj_align(btn_wconn, LV_ALIGN_TOP_RIGHT, 0, 45); lv_obj_add_event_cb(btn_wconn, btn_wifi_conn_cb, LV_EVENT_CLICKED, NULL); lv_obj_t * lbl_wconn = lv_label_create(btn_wconn); lv_label_set_text(lbl_wconn, "Join");
-    wifi_stat_lbl = lv_label_create(t2); lv_label_set_text(wifi_stat_lbl, "Status: Disconnected"); lv_obj_align(wifi_stat_lbl, LV_ALIGN_TOP_MID, 0, 95);
+    wifi_dd = lv_dropdown_create(t2); 
+    lv_dropdown_set_options(wifi_dd, "Press Scan..."); 
+    lv_obj_set_width(wifi_dd, 180); 
+    lv_obj_align(wifi_dd, LV_ALIGN_TOP_LEFT, 0, 0);
+    
+    lv_obj_t * btn_scan = lv_btn_create(t2); 
+    lv_obj_set_width(btn_scan, 70); 
+    lv_obj_align(btn_scan, LV_ALIGN_TOP_RIGHT, 0, 0); 
+    lv_obj_add_event_cb(btn_scan, btn_wifi_scan_cb, LV_EVENT_CLICKED, NULL); 
+    lv_obj_t * lbl_scan = lv_label_create(btn_scan); 
+    lv_label_set_text(lbl_scan, "Scan");
+    
+    pwd_ta = lv_textarea_create(t2); 
+    lv_textarea_set_placeholder_text(pwd_ta, "Password"); 
+    lv_obj_set_width(pwd_ta, 180); 
+    lv_obj_align(pwd_ta, LV_ALIGN_TOP_LEFT, 0, 45); 
+    lv_obj_add_event_cb(pwd_ta, ta_event_cb, LV_EVENT_ALL, NULL);
+    
+    lv_obj_t * btn_wconn = lv_btn_create(t2); 
+    lv_obj_set_width(btn_wconn, 70); 
+    lv_obj_align(btn_wconn, LV_ALIGN_TOP_RIGHT, 0, 45); 
+    lv_obj_add_event_cb(btn_wconn, btn_wifi_conn_cb, LV_EVENT_CLICKED, NULL); 
+    lv_obj_t * lbl_wconn = lv_label_create(btn_wconn); 
+    lv_label_set_text(lbl_wconn, "Join");
+    
+    wifi_stat_lbl = lv_label_create(t2); 
+    lv_label_set_text(wifi_stat_lbl, "Status: Disconnected"); 
+    lv_obj_align(wifi_stat_lbl, LV_ALIGN_TOP_MID, 0, 95);
 
-    lv_obj_t * br_lbl = lv_label_create(t3); lv_label_set_text(br_lbl, "Screen Brightness:"); lv_obj_align(br_lbl, LV_ALIGN_TOP_LEFT, 0, 0);
-    lv_obj_t * br_slider = lv_slider_create(t3); lv_slider_set_range(br_slider, 10, 255); lv_slider_set_value(br_slider, 200, LV_ANIM_OFF); lv_obj_set_width(br_slider, 250); lv_obj_align(br_slider, LV_ALIGN_TOP_MID, 0, 20); lv_obj_add_event_cb(br_slider, slider_bright_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_t * br_lbl = lv_label_create(t3); 
+    lv_label_set_text(br_lbl, "Screen Brightness:"); 
+    lv_obj_align(br_lbl, LV_ALIGN_TOP_LEFT, 0, 0);
+    
+    lv_obj_t * br_slider = lv_slider_create(t3); 
+    lv_slider_set_range(br_slider, 10, 255); 
+    lv_slider_set_value(br_slider, 200, LV_ANIM_OFF); 
+    lv_obj_set_width(br_slider, 250); 
+    lv_obj_align(br_slider, LV_ALIGN_TOP_MID, 0, 20); 
+    lv_obj_add_event_cb(br_slider, slider_bright_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    
     const char* rot_btns[] = {"Rot 0", "Rot 1", "Rot 2", "Rot 3"};
     for(int i=0; i<4; i++) {
-        lv_obj_t * b = lv_btn_create(t3); lv_obj_set_size(b, 65, 35); int rx = (i%2) * 80; int ry = (i/2) * 45; lv_obj_align(b, LV_ALIGN_TOP_LEFT, rx + 10, ry + 60); lv_obj_add_event_cb(b, btn_orient_event_cb, LV_EVENT_CLICKED, NULL); lv_obj_t * l = lv_label_create(b); lv_label_set_text(l, rot_btns[i]);
+        lv_obj_t * b = lv_btn_create(t3); 
+        lv_obj_set_size(b, 65, 35); 
+        int rx = (i%2) * 80; 
+        int ry = (i/2) * 45; 
+        lv_obj_align(b, LV_ALIGN_TOP_LEFT, rx + 10, ry + 60); 
+        lv_obj_add_event_cb(b, btn_orient_event_cb, LV_EVENT_CLICKED, NULL); 
+        lv_obj_t * l = lv_label_create(b); 
+        lv_label_set_text(l, rot_btns[i]);
     }
     
-    sys_info_lbl = lv_label_create(t4); lv_label_set_text(sys_info_lbl, "Booting..."); lv_obj_align(sys_info_lbl, LV_ALIGN_TOP_LEFT, 0, 0);
+    sys_info_lbl = lv_label_create(t4); 
+    lv_label_set_text(sys_info_lbl, "Booting..."); 
+    lv_obj_align(sys_info_lbl, LV_ALIGN_TOP_LEFT, 0, 0);
 
-    sys_kb = lv_keyboard_create(main_ui_screen); lv_obj_add_flag(sys_kb, LV_OBJ_FLAG_HIDDEN);
+    sys_kb = lv_keyboard_create(main_ui_screen); 
+    lv_obj_add_flag(sys_kb, LV_OBJ_FLAG_HIDDEN);
 }
 
 void build_pause_menu() {
     pause_menu_screen = lv_obj_create(NULL);
-    lv_obj_t * title = lv_label_create(pause_menu_screen); lv_label_set_text(title, "VNC PAUSED"); lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
-    lv_obj_t * btn_res = lv_btn_create(pause_menu_screen); lv_obj_set_size(btn_res, 120, 40); lv_obj_align(btn_res, LV_ALIGN_TOP_LEFT, 10, 40); lv_obj_add_event_cb(btn_res, btn_vnc_resume_cb, LV_EVENT_CLICKED, NULL); lv_obj_t * l_res = lv_label_create(btn_res); lv_label_set_text(l_res, "RESUME");
-    lv_obj_t * btn_disc = lv_btn_create(pause_menu_screen); lv_obj_set_size(btn_disc, 120, 40); lv_obj_align(btn_disc, LV_ALIGN_TOP_RIGHT, -10, 40); lv_obj_add_event_cb(btn_disc, btn_vnc_disconnect_cb, LV_EVENT_CLICKED, NULL); lv_obj_t * l_disc = lv_label_create(btn_disc); lv_label_set_text(l_disc, "DISCONNECT"); lv_obj_set_style_bg_color(btn_disc, lv_palette_main(LV_PALETTE_RED), 0);
     
-    offset_x_lbl = lv_label_create(pause_menu_screen); lv_label_set_text(offset_x_lbl, "X Offset: 0"); lv_obj_align(offset_x_lbl, LV_ALIGN_CENTER, 0, -5);
-    lv_obj_t * s_off_x = lv_slider_create(pause_menu_screen); lv_slider_set_range(s_off_x, 0, 1920); lv_slider_set_value(s_off_x, 0, LV_ANIM_OFF
+    lv_obj_t * title = lv_label_create(pause_menu_screen); 
+    lv_label_set_text(title, "VNC PAUSED"); 
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
+    
+    lv_obj_t * btn_res = lv_btn_create(pause_menu_screen); 
+    lv_obj_set_size(btn_res, 120, 40); 
+    lv_obj_align(btn_res, LV_ALIGN_TOP_LEFT, 10, 40); 
+    lv_obj_add_event_cb(btn_res, btn_vnc_resume_cb, LV_EVENT_CLICKED, NULL); 
+    lv_obj_t * l_res = lv_label_create(btn_res); 
+    lv_label_set_text(l_res, "RESUME");
+    
+    lv_obj_t * btn_disc = lv_btn_create(pause_menu_screen); 
+    lv_obj_set_size(btn_disc, 120, 40); 
+    lv_obj_align(btn_disc, LV_ALIGN_TOP_RIGHT, -10, 40); 
+    lv_obj_add_event_cb(btn_disc, btn_vnc_disconnect_cb, LV_EVENT_CLICKED, NULL); 
+    lv_obj_t * l_disc = lv_label_create(btn_disc); 
+    lv_label_set_text(l_disc, "DISCONNECT"); 
+    lv_obj_set_style_bg_color(btn_disc, lv_palette_main(LV_PALETTE_RED), 0);
+    
+    offset_x_lbl = lv_label_create(pause_menu_screen); 
+    lv_label_set_text(offset_x_lbl, "X Offset: 0"); 
+    lv_obj_align(offset_x_lbl, LV_ALIGN_CENTER, 0, -5);
+    
+    lv_obj_t * s_off_x = lv_slider_create(pause_menu_screen); 
+    lv_slider_set_range(s_off_x, 0, 1920); 
+    lv_slider_set_value(s_off_x, 0, LV_ANIM_OFF); 
+    lv_obj_set_width(s_off_x, 260); 
+    lv_obj_align(s_off_x, LV_ALIGN_CENTER, 0, 15); 
+    lv_obj_add_event_cb(s_off_x, slider_offset_cb, LV_EVENT_VALUE_CHANGED, (void*)0);
+    
+    offset_y_lbl = lv_label_create(pause_menu_screen); 
+    lv_label_set_text(offset_y_lbl, "Y Offset: 0"); 
+    lv_obj_align(offset_y_lbl, LV_ALIGN_CENTER, 0, 45);
+    
+    lv_obj_t * s_off_y = lv_slider_create(pause_menu_screen); 
+    lv_slider_set_range(s_off_y, 0, 1080); 
+    lv_slider_set_value(s_off_y, 0, LV_ANIM_OFF); 
+    lv_obj_set_width(s_off_y, 260); 
+    lv_obj_align(s_off_y, LV_ALIGN_CENTER, 0, 65); 
+    lv_obj_add_event_cb(s_off_y, slider_offset_cb, LV_EVENT_VALUE_CHANGED, (void*)1);
+}
+
+void build_vnc_keyboard() {
+    kb_overlay_screen = lv_obj_create(NULL);
+    lv_obj_set_style_bg_opa(kb_overlay_screen, LV_OPA_TRANSP, 0); 
+    
+    vnc_custom_kb = lv_keyboard_create(kb_overlay_screen);
+    lv_keyboard_set_map(vnc_custom_kb, LV_KEYBOARD_MODE_USER_1, kb_map_en_lc, kb_ctrl_en_lc);
+    lv_keyboard_set_mode(vnc_custom_kb, LV_KEYBOARD_MODE_USER_1);
+    
+    lv_obj_add_event_cb(vnc_custom_kb, vnc_kb_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
+}
+
+void setup() {
+    Serial.begin(115200);
+    
+    ledcSetup(0, 5000, 8); 
+    ledcAttachPin(TFT_BL, 0); 
+    ledcWrite(0, 200);
+    pinMode(27, OUTPUT); 
+    digitalWrite(27, HIGH);
+
+    tft.begin(); 
+    tft.setRotation(1); 
+    touchSPI.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
+    ts.begin(touchSPI); 
+    ts.setRotation(1); 
+
+    WiFi.mode(WIFI_STA); 
+    WiFi.disconnect();
+
+    lv_init();
+    lv_disp_draw_buf_init(&draw_buf, buf, NULL, 320 * 20);
+
+    static lv_disp_drv_t disp_drv;
+    lv_disp_drv_init(&disp_drv);
+    disp_drv.hor_res = 320; 
+    disp_drv.ver_res = 240;
+    disp_drv.flush_cb = my_disp_flush;
+    disp_drv.draw_buf = &draw_buf;
+    lv_disp_drv_register(&disp_drv);
+
+    static lv_indev_drv_t indev_drv;
+    lv_indev_drv_init(&indev_drv);
+    indev_drv.type = LV_INDEV_TYPE_POINTER;
+    indev_drv.read_cb = my_touchpad_read;
+     lv_indev_drv_register(&indev_drv);
+
+    build_main_ui();
+    build_pause_menu();
+    build_vnc_keyboard(); 
+    
+    lv_scr_load(main_ui_screen);
+}
+
+void loop() {
+    lv_timer_handler();
+    delay(5);
+
+    static unsigned long last_update = 0;
+    if (millis() - last_update > 2000) {
+        last_update = millis();
+        if (WiFi.status() == WL_CONNECTED) {
+            String s = "Connected! IP: " + WiFi.localIP().toString();
+            lv_label_set_text(wifi_stat_lbl, s.c_str());
+        } else if (WiFi.status() != WL_CONNECTED && String(lv_label_get_text(wifi_stat_lbl)).indexOf("Connected!") >= 0) {
+            lv_label_set_text(wifi_stat_lbl, "Disconnected");
+        }
+        
+        char sys_info[128];
+        snprintf(sys_info, sizeof(sys_info), "Free RAM: %d KB\nWiFi MAC: %s\nIP: %s\nUptime: %lu s", 
+            ESP.getFreeHeap() / 1024, WiFi.macAddress().c_str(), WiFi.localIP().toString().c_str(), millis() / 1000);
+        if(!vnc_active) lv_label_set_text(sys_info_lbl, sys_info);
+    }
+
+    if(vnc_active && !vnc_paused && !vnc_kb_active) {
+        vnc.loop();
+        
+        tft.fillRect(tft.width() - 85, tft.height() - 40, 40, 40, TFT_BLUE);
+        tft.setTextColor(TFT_WHITE); 
+        tft.setTextSize(2);
+        tft.setCursor(tft.width() - 75, tft.height() - 25);
+        tft.print("K");
+        
+        tft.fillRect(tft.width() - 40, tft.height() - 40, 40, 40, TFT_PURPLE);
+        tft.setTextColor(TFT_WHITE); 
+        tft.setTextSize(2);
+        tft.setCursor(tft.width() - 30, tft.height() - 25);
+        tft.print("=");
+    }
+}
